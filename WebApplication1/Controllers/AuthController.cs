@@ -1,6 +1,9 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using System.IdentityModel.Tokens.Jwt;
 using System.Runtime.CompilerServices;
 using System.Security.Claims;
@@ -24,39 +27,34 @@ namespace WebApplication1.Controllers
 
 
         [HttpPost("register")]
+        [Authorize]
         public ActionResult<User> Register(UserDTO request)
         {
-            string passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
-            user.Username = request.Username;
-            user.PasswordHash = passwordHash;
+            var passwordHasher = new PasswordHasher<UserDTO>();
+            string passwordHash = passwordHasher.HashPassword(request, request.Password);
+
+            var user = new User
+            {
+                Username = request.Username,
+                PasswordHash = passwordHash
+            };
+
             return Ok(user);
         }
 
 
-        [HttpPost("Login")]
-        public ActionResult<User> Login(UserDTO request)
+
+        [HttpPost("login")]
+        public ActionResult<string> Login(User request)
         {
             try
             {
-                if (user.Username != request.Username)
-                {
-                    return BadRequest("User not found on database");
-                }
-
-
-                if (!BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
-                {
-                    return BadRequest("Password wrong please reentry your password");
-                }
-
-                string token = CreateToken(user);
+                string token = CreateToken(request);
                 return Ok(token);
-
-
             }
             catch (Exception ex)
             {
-                return BadRequest(ex);
+                return StatusCode(500, ex.Message);
             }
         }
 
@@ -81,8 +79,6 @@ namespace WebApplication1.Controllers
 
 
         }
-
-
 
     }
 }
